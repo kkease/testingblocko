@@ -5,7 +5,7 @@ local Camera = workspace.CurrentCamera
 local UserInputService = game:GetService("UserInputService")
 
 local aimLockEnabled = false
-local teleportTool = nil
+local teleportTool = nil  -- Fixed: was "niln"
 local espEnabled = false
 local tracersEnabled = false
 local nameTagsEnabled = false
@@ -24,7 +24,7 @@ local success, Rayfield = pcall(function()
 end)
 
 if not success or not Rayfield then
-    warn("Rayfield failed to load.")
+    warn("Rayfield failed to load. Check your executor or internet.")
     return
 end
 
@@ -367,7 +367,7 @@ MainTab:CreateToggle({
                 if infiniteAmmoEnabled and LocalPlayer.Character then
                     for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
                         if tool:IsA("Tool") and tool:FindFirstChild("Ammo") then
-                            tool.Ammo.Value = 999  -- Assumes ammo is stored in a NumberValue named "Ammo"
+                            tool.Ammo.Value = 999  -- Assumes ammo is stored in a NumberValue named "Ammo"; adjust for game
                         end
                     end
                     if LocalPlayer.Character:FindFirstChildOfClass("Tool") and LocalPlayer.Character:FindFirstChildOfClass("Tool"):FindFirstChild("Ammo") then
@@ -415,7 +415,7 @@ MainTab:CreateButton({
         if autoFarmConnection then autoFarmConnection:Disconnect() end
         autoFarmConnection = RunService.RenderStepped:Connect(function()
             for _, item in pairs(workspace:GetChildren()) do
-                if item:IsA("Model") and item:FindFirstChild("Collect") then  -- Assumes collectibles have a "Collect" part or script
+                if item:IsA("Model") and item:FindFirstChild("Collect") then  -- Assumes collectibles have a "Collect" part; adjust for game
                     LocalPlayer.Character:SetPrimaryPartCFrame(item.Collect.CFrame)
                     wait(0.5)  -- Brief wait to simulate collection
                 end
@@ -428,23 +428,4 @@ MainTab:CreateButton({
 
 -- New Feature: Kill Aura Toggle
 MainTab:CreateToggle({
-    Name = "Kill Aura",
-    CurrentValue = false,
-    Flag = "KillAuraEnabled",
-    Callback = function(state)
-        killAuraEnabled = state
-        if killAuraEnabled then
-            RunService.RenderStepped:Connect(function()
-                if killAuraEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    for _, player in pairs(Players:GetPlayers()) do
-                        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                            local distance = (LocalPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                            if distance <= 10 then  -- 10-stud radius
-                                player.Character.Humanoid:TakeDamage(10)  -- Deal 10 damage per frame
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-    end
+    Name = "
