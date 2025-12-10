@@ -9,14 +9,15 @@ local teleportTool = nil
 local espEnabled = false
 local tracersEnabled = false
 local nameTagsEnabled = false
-local triggerBotEnabled = false
-local pickUpToolsEnabled = false
-local showUsernamesEnabled = false
 local aimlockConnection
-local triggerBotConnection
-local pickUpConnection
 local aimLockUI = nil  -- For the on-screen aimlock toggle
-local usernameUI = nil  -- For fire-type username UI
+
+-- New variables for added features
+local godModeEnabled = false
+local infiniteAmmoEnabled = false
+local noClipEnabled = false
+local killAuraEnabled = false
+local autoFarmConnection
 
 local success, Rayfield = pcall(function()
     return loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
@@ -47,11 +48,8 @@ local Window = Rayfield:CreateWindow({
     }
 })
 
--- Organized Tabs
-local CombatTab = Window:CreateTab("Combat", 4483362458)  -- For aimlock, triggerbot
-local MovementTab = Window:CreateTab("Movement", 4483362458)  -- For speed, jump, fly, teleport
-local VisualsTab = Window:CreateTab("Visuals", 4483362458)  -- For ESP, tracers, usernames
-local UtilitiesTab = Window:CreateTab("Utilities", 4483362458)  -- For tools, prompts, teleports
+local MainTab = Window:CreateTab("Main", 4483362458)
+local ExtraTab = Window:CreateTab("Extras", 4483362458)  -- New tab for additional features
 
 -- Function to create aimlock UI
 local function createAimLockUI()
@@ -127,74 +125,8 @@ local function destroyAimLockUI()
     end
 end
 
--- Function to create fire-type username UI
-local function createUsernameUI()
-    if usernameUI then return end
-    usernameUI = Instance.new("ScreenGui", game.CoreGui)
-    usernameUI.Name = "UsernameUI"
-
-    local frame = Instance.new("Frame", usernameUI)
-    frame.Size = UDim2.new(0, 300, 0, 400)
-    frame.Position = UDim2.new(0.8, -150, 0.5, -200)
-    frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    frame.BackgroundTransparency = 0.5
-    frame.BorderSizePixel = 2
-    frame.BorderColor3 = Color3.fromRGB(255, 100, 0)  -- Fire-like orange
-    frame.Active = true
-    frame.Draggable = true
-
-    local title = Instance.new("TextLabel", frame)
-    title.Size = UDim2.new(1, 0, 0, 30)
-    title.BackgroundTransparency = 1
-    title.Text = "Player Usernames (Fire Mode)"
-    title.TextColor3 = Color3.fromRGB(255, 150, 0)
-    title.TextScaled = true
-    title.Font = Enum.Font.GothamBold
-
-    local scrollFrame = Instance.new("ScrollingFrame", frame)
-    scrollFrame.Size = UDim2.new(1, 0, 1, -30)
-    scrollFrame.Position = UDim2.new(0, 0, 0, 30)
-    scrollFrame.BackgroundTransparency = 1
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-    scrollFrame.ScrollBarThickness = 5
-
-    local function updateUsernames()
-        for _, child in ipairs(scrollFrame:GetChildren()) do
-            if child:IsA("TextLabel") then child:Destroy() end
-        end
-        local yOffset = 0
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer then
-                local label = Instance.new("TextLabel", scrollFrame)
-                label.Size = UDim2.new(1, 0, 0, 25)
-                label.Position = UDim2.new(0, 0, 0, yOffset)
-                label.BackgroundTransparency = 1
-                label.Text = player.Name
-                label.TextColor3 = Color3.fromRGB(255, math.random(100, 255), 0)  -- Random fire colors
-                label.TextScaled = true
-                label.Font = Enum.Font.GothamBold
-                label.TextStrokeTransparency = 0.5
-                label.TextStrokeColor3 = Color3.fromRGB(255, 0, 0)
-                yOffset = yOffset + 25
-            end
-        end
-        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, yOffset)
-    end
-
-    updateUsernames()
-    Players.PlayerAdded:Connect(updateUsernames)
-    Players.PlayerRemoving:Connect(updateUsernames)
-end
-
-local function destroyUsernameUI()
-    if usernameUI then
-        usernameUI:Destroy()
-        usernameUI = nil
-    end
-end
-
--- Combat Tab Features
-CombatTab:CreateToggle({
+-- Aimlock Toggle (improved)
+MainTab:CreateToggle({
     Name = "Aimlock (with On-Screen Toggle)",
     CurrentValue = false,
     Flag = "AimlockEnabled",
@@ -239,128 +171,8 @@ CombatTab:CreateToggle({
     end,
 })
 
-CombatTab:CreateToggle({
-    Name = "Trigger Bot",
-    CurrentValue = false,
-    Flag = "TriggerBotEnabled",
-    Callback = function(state)
-        triggerBotEnabled = state
-        if triggerBotEnabled then
-            triggerBotConnection = RunService.RenderStepped:Connect(function()
-                if triggerBotEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool") then
-                    local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
-                    if tool and tool:FindFirstChild("Handle") then
-                        local ray = Camera:ViewportPointToRay(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                        local raycastParams = RaycastParams.new()
-                        raycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
-                        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
-                        local raycastResult = workspace:Raycast(ray.Origin, ray.Direction * 1000, raycastParams)
-                        if raycastResult and raycastResult.Instance and raycastResult.Instance:IsDescendantOf(workspace) then
-                            for _, player in pairs(Players:GetPlayers()) do
-                                if player ~= LocalPlayer and player.Character and raycastResult.Instance:IsDescendantOf(player.Character) then
-                                    tool:Activate()
-                                    break
-                                end
-                            end
-                        end
-                    end
-                end
-            end)
-        else
-            if triggerBotConnection then
-                triggerBotConnection:Disconnect()
-                triggerBotConnection = nil
-            end
-        end
-    end
-})
-
--- Movement Tab Features
-MovementTab:CreateSlider({
-    Name = "WalkSpeed",
-    Range = {16, 200},
-    Increment = 1,
-    CurrentValue = 16,
-    Flag = "SpeedSlider",
-    Callback = function(value)
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.WalkSpeed = value
-        end
-    end
-})
-
-MovementTab:CreateToggle({
-    Name = "Enable Jump",
-    CurrentValue = false,
-    Flag = "EnableJump",
-    Callback = function(state)
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.UseJumpPower = state
-            LocalPlayer.Character.Humanoid.JumpPower = state and 50 or 0
-        end
-    end
-})
-
-MovementTab:CreateSlider({
-    Name = "Jump Power",
-    Range = {0, 200},
-    Increment = 1,
-    CurrentValue = 50,
-    Flag = "JumpPowerSlider",
-    Callback = function(Value)
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.JumpPower = Value
-        end
-    end
-})
-
-MovementTab:CreateButton({
-    Name = "Allow Jump (Infinite)",
-    Callback = function()
-        UserInputService.JumpRequest:Connect(function()
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-                LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
-            end
-        end)
-    end,
-})
-
-MovementTab:CreateToggle({
-    Name = "Fly Mode",
-    CurrentValue = false,
-    Flag = "FlyEnabled",
-    Callback = function(state)
-        if state then
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("HumanoidRootPart") then
-                local bodyVelocity = Instance.new("BodyVelocity")
-                bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-                bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
-                bodyVelocity.Parent = char.HumanoidRootPart
-
-                local flyConnection
-                flyConnection = RunService.RenderStepped:Connect(function()
-                    if not state then flyConnection:Disconnect() return end
-                    local moveDirection = Vector3.new()
-                    if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDirection = moveDirection + Camera.CFrame.LookVector end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDirection = moveDirection - Camera.CFrame.LookVector end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDirection = moveDirection - Camera.CFrame.RightVector end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDirection = moveDirection + Camera.CFrame.RightVector end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDirection = moveDirection + Vector3.new(0, 1, 0) end
-                    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDirection = moveDirection - Vector3.new(0, 1, 0) end
-                    bodyVelocity.Velocity = moveDirection * 50
-                end)
-            end
-        else
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                local bv = LocalPlayer.Character.HumanoidRootPart:FindFirstChild("BodyVelocity")
-                if bv then bv:Destroy() end
-            end
-        end
-    end
-})
-
-MovementTab:CreateButton({
+-- Teleport Tool (mobile-adapted: uses raycast from camera center)
+MainTab:CreateButton({
     Name = "Add Teleport Tool",
     Callback = function()
         if not LocalPlayer.Backpack:FindFirstChild("TeleportTool") then
@@ -388,8 +200,61 @@ MovementTab:CreateButton({
     end
 })
 
--- Visuals Tab Features
-VisualsTab:CreateToggle({
+-- Speed Control
+MainTab:CreateSlider({
+    Name = "WalkSpeed",
+    Range = {16, 200},  -- Increased range
+    Increment = 1,
+    CurrentValue = 16,
+    Flag = "SpeedSlider",
+    Callback = function(value)
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.WalkSpeed = value
+        end
+    end
+})
+
+-- Jump Enable
+MainTab:CreateToggle({
+    Name = "Enable Jump",
+    CurrentValue = false,
+    Flag = "EnableJump",
+    Callback = function(state)
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.UseJumpPower = state
+            LocalPlayer.Character.Humanoid.JumpPower = state and 50 or 0
+        end
+    end
+})
+
+-- Jump Power
+MainTab:CreateSlider({
+    Name = "Jump Power",
+    Range = {0, 200},  -- Increased range
+    Increment = 1,
+    CurrentValue = 50,
+    Flag = "JumpPowerSlider",
+    Callback = function(Value)
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.JumpPower = Value
+        end
+    end
+})
+
+-- Allow Jump Button
+MainTab:CreateButton({
+    Name = "Allow Jump (Infinite)",
+    Callback = function()
+        UserInputService.JumpRequest:Connect(function()
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+                LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end)
+    end,
+})
+
+-- ESP Toggle (enhanced)
+MainTab:CreateToggle({
     Name = "ESP (Green Highlights & Name Tags)",
     CurrentValue = false,
     Flag = "ESPEnabled",
@@ -452,175 +317,134 @@ VisualsTab:CreateToggle({
     end
 })
 
-VisualsTab:CreateToggle({
-    Name = "Tracers (Red Connections)", 
-CurrentValue = false,
+-- Tracers Toggle (enhanced with removal)
+MainTab:CreateToggle({
+    Name = "Tracers",
+    CurrentValue = false,
     Flag = "TracersEnabled",
     Callback = function(state)
         tracersEnabled = state
-        local function setupTracers(character, player)
-            if character:FindFirstChild("Tracer") then
-                character.Tracer:Destroy()
-            end
-            if tracersEnabled then
-                local tracer = Instance.new("Beam")
-                tracer.Name = "Tracer"
-                tracer.Color = ColorSequence.new(Color3.fromRGB(255, 0, 0))  -- Red color
-                tracer.Width0 = 0.1
-                tracer.Width1 = 0.1
-                tracer.FaceCamera = true
-                tracer.Parent = character
-
-                local attachment0 = Instance.new("Attachment")
-                attachment0.Position = Vector3.new(0, 0, 0)
-                attachment0.Parent = LocalPlayer.Character:WaitForChild("HumanoidRootPart")
-
-                local attachment1 = Instance.new("Attachment")
-                attachment1.Position = Vector3.new(0, 0, 0)
-                attachment1.Parent = character:WaitForChild("HumanoidRootPart")
-
-                tracer.Attachment0 = attachment0
-                tracer.Attachment1 = attachment1
+        if not state then
+            for _, player in pairs(Players:GetPlayers()) do
+                if player.Character and player.Character:FindFirstChild("TracerLine") then
+                    player.Character.TracerLine:Destroy()
+                end
             end
         end
-
-        local function onCharacterAdded(character, player)
-            if tracersEnabled then
-                setupTracers(character, player)
-            end
-        end
-
-        for _, player in ipairs(Players:GetPlayers()) do
-            player.CharacterAdded:Connect(function(character)
-                onCharacterAdded(character, player)
-            end)
-            if player.Character then
-                onCharacterAdded(player.Character, player)
-            end
-        end
-
-        Players.PlayerAdded:Connect(function(player)
-            player.CharacterAdded:Connect(function(character)
-                onCharacterAdded(character, player)
-            end)
-        end)
     end
 })
 
-VisualsTab:CreateToggle({
-    Name = "Name Tags",
+-- New Feature: God Mode Toggle
+MainTab:CreateToggle({
+    Name = "God Mode",
     CurrentValue = false,
-    Flag = "NameTagsEnabled",
+    Flag = "GodModeEnabled",
     Callback = function(state)
-        nameTagsEnabled = state
-        -- Note: Name tags are already included in ESP, but this could be a separate toggle if needed
-        -- For simplicity, this can toggle the text part of ESP or create standalone name tags
-        -- Assuming it's separate, similar to ESP but only name tags
-        local function setupNameTags(character, player)
-            if character:FindFirstChild("NameTag") then
-                character.NameTag:Destroy()
-            end
-            if nameTagsEnabled then
-                local billboard = Instance.new("BillboardGui")
-                billboard.Name = "NameTag"
-                billboard.Size = UDim2.new(2, 0, 0.5, 0)
-                billboard.Adornee = character:WaitForChild("Head")
-                billboard.AlwaysOnTop = true
-                billboard.Parent = character
-
-                local text = Instance.new("TextLabel")
-                text.Size = UDim2.new(1, 0, 1, 0)
-                text.BackgroundTransparency = 1
-                text.TextColor3 = Color3.new(1, 1, 1)
-                text.TextStrokeTransparency = 0
-                text.Font = Enum.Font.GothamBold
-                text.TextScaled = true
-                text.Text = player.Name
-                text.Parent = billboard
+        godModeEnabled = state
+        if godModeEnabled then
+            local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
+            if humanoid then
+                humanoid.Health = humanoid.MaxHealth
+                humanoid.HealthChanged:Connect(function()
+                    if godModeEnabled then
+                        humanoid.Health = humanoid.MaxHealth
+                    end
+                end)
             end
         end
-
-        local function onCharacterAdded(character, player)
-            if nameTagsEnabled then
-                setupNameTags(character, player)
-            end
-        end
-
-        for _, player in ipairs(Players:GetPlayers()) do
-            player.CharacterAdded:Connect(function(character)
-                onCharacterAdded(character, player)
-            end)
-            if player.Character then
-                onCharacterAdded(player.Character, player)
-            end
-        end
-
-        Players.PlayerAdded:Connect(function(player)
-            player.CharacterAdded:Connect(function(character)
-                onCharacterAdded(character, player)
-            end)
-        end)
     end
 })
 
-VisualsTab:CreateToggle({
-    Name = "Show Usernames (Fire UI)",
+-- New Feature: Infinite Ammo Toggle
+MainTab:CreateToggle({
+    Name = "Infinite Ammo",
     CurrentValue = false,
-    Flag = "ShowUsernamesEnabled",
+    Flag = "InfiniteAmmoEnabled",
     Callback = function(state)
-        showUsernamesEnabled = state
-        if showUsernamesEnabled then
-            createUsernameUI()
+        infiniteAmmoEnabled = state
+        if infiniteAmmoEnabled then
+            RunService.RenderStepped:Connect(function()
+                if infiniteAmmoEnabled and LocalPlayer.Character then
+                    for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+                        if tool:IsA("Tool") and tool:FindFirstChild("Ammo") then
+                            tool.Ammo.Value = 999  -- Assumes ammo is stored in a NumberValue named "Ammo"
+                        end
+                    end
+                    if LocalPlayer.Character:FindFirstChildOfClass("Tool") and LocalPlayer.Character:FindFirstChildOfClass("Tool"):FindFirstChild("Ammo") then
+                        LocalPlayer.Character:FindFirstChildOfClass("Tool").Ammo.Value = 999
+                    end
+                end
+            end)
+        end
+    end
+})
+
+-- New Feature: No Clip Toggle
+MainTab:CreateToggle({
+    Name = "No Clip",
+    CurrentValue = false,
+    Flag = "NoClipEnabled",
+    Callback = function(state)
+        noClipEnabled = state
+        if noClipEnabled then
+            local character = LocalPlayer.Character
+            if character then
+                for _, part in pairs(character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
         else
-            destroyUsernameUI()
+            local character = LocalPlayer.Character
+            if character then
+                for _, part in pairs(character:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = true
+                    end
+                end
+            end
         end
     end
 })
 
--- Utilities Tab Features
-UtilitiesTab:CreateToggle({
-    Name = "Auto Pick Up Tools",
+-- New Feature: Auto Farm Button
+MainTab:CreateButton({
+    Name = "Auto Farm",
+    Callback = function()
+        if autoFarmConnection then autoFarmConnection:Disconnect() end
+        autoFarmConnection = RunService.RenderStepped:Connect(function()
+            for _, item in pairs(workspace:GetChildren()) do
+                if item:IsA("Model") and item:FindFirstChild("Collect") then  -- Assumes collectibles have a "Collect" part or script
+                    LocalPlayer.Character:SetPrimaryPartCFrame(item.Collect.CFrame)
+                    wait(0.5)  -- Brief wait to simulate collection
+                end
+            end
+        end)
+        wait(10)  -- Run for 10 seconds, then stop
+        if autoFarmConnection then autoFarmConnection:Disconnect() end
+    end
+})
+
+-- New Feature: Kill Aura Toggle
+MainTab:CreateToggle({
+    Name = "Kill Aura",
     CurrentValue = false,
-    Flag = "PickUpToolsEnabled",
+    Flag = "KillAuraEnabled",
     Callback = function(state)
-        pickUpToolsEnabled = state
-        if pickUpToolsEnabled then
-            pickUpConnection = RunService.RenderStepped:Connect(function()
-                if pickUpToolsEnabled and LocalPlayer.Character then
-                    for _, tool in ipairs(workspace:GetChildren()) do
-                        if tool:IsA("Tool") and (tool.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <= 10 then
-                            tool.Parent = LocalPlayer.Backpack
+        killAuraEnabled = state
+        if killAuraEnabled then
+            RunService.RenderStepped:Connect(function()
+                if killAuraEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    for _, player in pairs(Players:GetPlayers()) do
+                        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                            local distance = (LocalPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                            if distance <= 10 then  -- 10-stud radius
+                                player.Character.Humanoid:TakeDamage(10)  -- Deal 10 damage per frame
+                            end
                         end
                     end
                 end
             end)
-        else
-            if pickUpConnection then
-                pickUpConnection:Disconnect()
-                pickUpConnection = nil
-            end
         end
     end
-})
-
-UtilitiesTab:CreateButton({
-    Name = "Teleport to Random Player",
-    Callback = function()
-        local players = Players:GetPlayers()
-        local randomPlayer = players[math.random(1, #players)]
-        if randomPlayer ~= LocalPlayer and randomPlayer.Character and randomPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            LocalPlayer.Character:SetPrimaryPartCFrame(randomPlayer.Character.HumanoidRootPart.CFrame)
-        end
-    end
-})
-
-UtilitiesTab:CreateButton({
-    Name = "Destroy All UIs",
-    Callback = function()
-        destroyAimLockUI()
-        destroyUsernameUI()
-        -- Add more if needed
-    end
-})
-
--- End of script
