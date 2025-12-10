@@ -428,4 +428,145 @@ MainTab:CreateButton({
 
 -- New Feature: Kill Aura Toggle
 MainTab:CreateToggle({
-    Name = "
+    Name = "Kill Aura",
+    CurrentValue = false,
+    Flag = "KillAuraEnabled",
+    Callback = function(state)
+        killAuraEnabled = state
+        if killAuraEnabled then
+            killAuraConnection = RunService.RenderStepped:Connect(function()
+                if killAuraEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    for _, player in pairs(Players:GetPlayers()) do
+                        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                            local distance = (LocalPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude
+                            if distance <= 10 then  -- 10-stud radius; adjust as needed
+                                player.Character.Humanoid:TakeDamage(10)  -- Deal 10 damage per frame; adjust for balance
+                            end
+                        end
+                    end
+                end
+            end)
+        else
+            if killAuraConnection then
+                killAuraConnection:Disconnect()
+                killAuraConnection = nil
+            end
+        end
+    end
+})
+
+-- Instant Proximity Prompts
+ExtraTab:CreateButton({
+    Name = "Instant Proximity Prompts",
+    Callback = function()
+        local function makeInstant(prompt)
+            if prompt:IsA("ProximityPrompt") then
+                prompt.HoldDuration = 0
+            end
+        end
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            makeInstant(obj)
+        end
+        workspace.DescendantAdded:Connect(makeInstant)
+    end,
+})
+
+-- Teleport Buttons
+ExtraTab:CreateButton({
+    Name = "Tp to Apt",
+    Callback = function()
+        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        local hrp = char:WaitForChild("HumanoidRootPart")
+        hrp.CFrame = CFrame.new(-122, 3, -663)
+    end,
+})
+
+ExtraTab:CreateButton({
+    Name = "Tp to Cookers",
+    Callback = function()
+        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        local hrp = char:WaitForChild("HumanoidRootPart")
+        hrp.CFrame = CFrame.new(-331, 3, -430)
+    end,
+})
+
+ExtraTab:CreateButton({
+    Name = "Tp to MM",
+    Callback = function()
+        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        local hrp = char:WaitForChild("HumanoidRootPart")
+        hrp.CFrame = CFrame.new(-443, 3, -772)
+    end,
+})
+
+-- New Feature: Fly Mode
+ExtraTab:CreateToggle({
+    Name = "Fly Mode",
+    CurrentValue = false,
+    Flag = "FlyEnabled",
+    Callback = function(state)
+        if state then
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local bodyVelocity = Instance.new("BodyVelocity")
+                bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
+                bodyVelocity.Parent = char.HumanoidRootPart
+
+                local flyConnection
+                flyConnection = RunService.RenderStepped:Connect(function()
+                    if not state then flyConnection:Disconnect() return end
+                    local moveDirection = Vector3.new()
+                    if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDirection = moveDirection + Camera.CFrame.LookVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDirection = moveDirection - Camera.CFrame.LookVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDirection = moveDirection - Camera.CFrame.RightVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDirection = moveDirection + Camera.CFrame.RightVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDirection = moveDirection + Vector3.new(0, 1, 0) end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDirection = moveDirection - Vector3.new(0, 1, 0) end
+                    bodyVelocity.Velocity = moveDirection * 50
+                end)
+            end
+        else
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local bv = LocalPlayer.Character.HumanoidRootPart:FindFirstChild("BodyVelocity")
+                if bv then bv:Destroy() end
+            end
+        end
+    end
+})
+
+-- RenderStepped for Tracers and ESP updates
+RunService.RenderStepped:Connect(function()
+    if tracersEnabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local tracer = player.Character:FindFirstChild("TracerLine")
+                if not tracer then
+                    local beam = Instance.new("Beam")
+                    beam.Name = "TracerLine"
+                    beam.FaceCamera = true
+                    beam.Color = ColorSequence.new(Color3.new(1, 1, 1))
+                    beam.Width0 = 0.1
+                    beam.Width1 = 0.1
+
+                    local att0 = Instance.new("Attachment", LocalPlayer.Character.HumanoidRootPart)
+                    local att1 = Instance.new("Attachment", player.Character.HumanoidRootPart)
+
+                    beam.Attachment0 = att0
+                    beam.Attachment1 = att1
+                    beam.Parent = player.Character
+                end
+            end
+        end
+    end
+
+    -- Update ESP distances
+    if espEnabled then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") and player.Character.Head:FindFirstChild("NameTag") then
+                local text = player.Character.Head.NameTag.TextLabel
+                text.Text = player.Name .. " [" .. math.floor((LocalPlayer.Character.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).Magnitude) .. "m]"
+            end
+        end
+    end
+end)
